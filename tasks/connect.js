@@ -9,6 +9,7 @@
 
 var connect = require('connect');
 var path = require('path');
+var fs = require('fs');
 
 module.exports = function(grunt) {
 
@@ -55,6 +56,37 @@ module.exports = function(grunt) {
       app.use(connect.directory(base));
     });
 
-    app.listen(port);
+    var serverProtocol = this.data.protocol || 'http';
+
+    if (serverProtocol !== 'http' && serverProtocol !== 'https')
+    {
+      grunt.fail.warn("'http' and 'https' are the only valid protocol options");
+    }
+
+    if (serverProtocol == 'http') {
+      app.listen(port);
+    }
+    else {
+      var options = {
+        protocol: serverProtocol,
+        port: port,
+        hostname: 'localhost',
+        keepAlive: keepAlive,
+        cert:  fs.readFileSync(this.data.cert).toString(),
+        key: fs.readFileSync(this.data.key).toString(),
+        passphrase: this.data.passphrase,
+        ca: fs.readFileSync(this.data.ca).toString()
+      };
+
+      require(options.protocol).createServer(options, app)
+        .listen(options.port, options.hostname)
+        .on('error', function(err) {
+          if (err.code === 'EADDRINUSE') {
+            grunt.fatal('Port ' + options.port + ' is already in use by another process.');
+          } else {
+            grunt.fatal(err);
+          }
+      });
+    }
   });
 };
